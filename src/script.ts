@@ -1,13 +1,22 @@
-const clientId = "5bb736e0d836446181b75b04d564efa8"; // Replace with your client id
+//store Spotify webapp client id
+const clientId = "5bb736e0d836446181b75b04d564efa8";
+
+//extract query params from the URL
 const params = new URLSearchParams(window.location.search);
+
+//retrieve authorization code from the query parameters
 const code = params.get("code");
 
+//get access token from local storage
 const storedToken = localStorage.getItem("accessToken");
 
+//clear authorization code on refresh
 if (code) {
     history.replaceState(null, "", "/");
 }
 
+//If the user is already logged in, attempt to fetch profile,
+//otherwise refresh the token and retry fetching the profile
 if (storedToken) {
     try {
         const profile = await fetchProfile(storedToken);
@@ -25,6 +34,8 @@ if (storedToken) {
     populateUI(profile);
 }
 
+//If authorization code is avaible, echange the code for an access token and fetch profile/liked songs
+//Otherwise, redirect to the Spotify authorization flow
 if (!code) {
     redirectToAuthCodeFlow(clientId);
 } else {
@@ -43,6 +54,7 @@ if (!code) {
 
 }
 
+//Redirect the user to Spotify's authorization endpoint to begin the login process
 export async function redirectToAuthCodeFlow(clientId: string) {
     const verifier = generateCodeVerifier(128);
     const challenge = await generateCodeChallenge(verifier);
@@ -60,6 +72,7 @@ export async function redirectToAuthCodeFlow(clientId: string) {
     document.location = `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
 
+//exchange our authorization code for an access token
 export async function getAccessToken(clientId: string, code: string): Promise<string> {
     const verifier = localStorage.getItem("verifier");
 
@@ -88,6 +101,7 @@ export async function getAccessToken(clientId: string, code: string): Promise<st
     return data.access_token;
 }
 
+//use our refresh token to fetch a new access token
 async function refreshAccessToken(clientId: string): Promise<string> {
     const refreshToken = localStorage.getItem("refreshToken");
     if (!refreshToken) {
@@ -117,12 +131,14 @@ async function refreshAccessToken(clientId: string): Promise<string> {
     return data.access_token;
 }
 
+//logout function we might use later
 function logout() {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     document.location = "/";
 }
 
+//fetch the user's profile information using the spotify API
 async function fetchProfile(token: string): Promise<UserProfile> {
     const result = await fetch("https://api.spotify.com/v1/me", {
         method: "GET", headers: { Authorization: `Bearer ${token}` }
@@ -131,6 +147,7 @@ async function fetchProfile(token: string): Promise<UserProfile> {
     return await result.json();
 }
 
+//fetch our users liked tracks
 async function fetchLikedTracks(token: string): Promise<any> {
     const result = await fetch("https://api.spotify.com/v1/me/tracks?limit=20", {
         method: "GET",
@@ -145,6 +162,7 @@ async function fetchLikedTracks(token: string): Promise<any> {
     return await result.json();
 }
 
+//update our UI with the user's profile data
 function populateUI(profile: UserProfile) {
     document.getElementById("displayName")!.innerText = profile.display_name;
     if (profile.images[0]) {
@@ -161,6 +179,7 @@ function populateUI(profile: UserProfile) {
     document.getElementById("imgUrl")!.innerText = profile.images[0]?.url ?? '(no profile image)';
 }
 
+//generate a random string for PKCE
 function generateCodeVerifier(length: number) {
     let text = '';
     let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -171,6 +190,7 @@ function generateCodeVerifier(length: number) {
     return text;
 }
 
+//creates a hashed and encoded version of the PKCE code verifier
 async function generateCodeChallenge(codeVerifier: string) {
     const data = new TextEncoder().encode(codeVerifier);
     const digest = await window.crypto.subtle.digest('SHA-256', data);
@@ -180,6 +200,7 @@ async function generateCodeChallenge(codeVerifier: string) {
         .replace(/=+$/, '');
 }
 
+//display users liked tracks
 function displayTracks(tracksData: any) {
     const tracksContainer = document.createElement("div");
     tracksContainer.id = "tracks";
