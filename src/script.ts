@@ -52,6 +52,15 @@ if (!code) {
         console.error("Failed to fetch tracks:", error);
     }
 
+    try {
+        const recentTracks = await fetchRecentlyPlayed(accessToken);
+        console.log("Recent Tracks:", recentTracks);
+        displayRecent(recentTracks);
+    } catch (error) {
+        console.error("Failed to fetch recent:", error);
+    }
+    
+
 }
 
 //Redirect the user to Spotify's authorization endpoint to begin the login process
@@ -65,7 +74,7 @@ export async function redirectToAuthCodeFlow(clientId: string) {
     params.append("client_id", clientId);
     params.append("response_type", "code");
     params.append("redirect_uri", "http://localhost:5173/callback");
-    params.append("scope", "user-read-private user-read-email user-library-read playlist-read-private");
+    params.append("scope", "user-read-private user-read-email user-library-read playlist-read-private user-read-recently-played");
     params.append("code_challenge_method", "S256");
     params.append("code_challenge", challenge);
 
@@ -162,6 +171,21 @@ async function fetchLikedTracks(token: string): Promise<any> {
     return await result.json();
 }
 
+//fetch our users recently played
+async function fetchRecentlyPlayed(token: string): Promise<any> {
+    const result = await fetch("https://api.spotify.com/v1/me/player/recently-played?limit=20", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!result.ok) {
+        const error = await result.json();
+        throw new Error(`Error fetching recently played: ${error.message}`);
+    }
+
+    return await result.json();
+}
+
 //update our UI with the user's profile data
 function populateUI(profile: UserProfile) {
     document.getElementById("displayName")!.innerText = profile.display_name;
@@ -202,22 +226,38 @@ async function generateCodeChallenge(codeVerifier: string) {
 
 //display users liked tracks
 function displayTracks(tracksData: any) {
-    const tracksContainer = document.createElement("div");
-    tracksContainer.id = "tracks";
+    const tracksContainer = document.getElementById("tracks")!;
+    tracksContainer.innerHTML = ""; 
 
-    const items = tracksData.items; 
+    const items = tracksData.items;
 
     items.forEach((item: any) => {
         const track = item.track;
-        const trackElement = document.createElement("div");
-
-        trackElement.innerHTML = `
-            <p><strong>${track.name}</strong> by ${track.artists.map((a: any) => a.name).join(", ")}</p>
-            <img src="${track.album.images[0]?.url}" alt="Album cover" width="100">
+        const trackInfo = `
+            <p>
+                <img src="${track.album.images[0]?.url}" alt="Album cover" width="100" height="100" style="vertical-align:middle; margin-right:10px;">
+                <strong>${track.name}</strong> by ${track.artists.map((a: any) => a.name).join(", ")}
+            </p>
         `;
-
-        tracksContainer.appendChild(trackElement);
+        tracksContainer.innerHTML += trackInfo; 
     });
+}
 
-    document.body.appendChild(tracksContainer);
+//display users recently played
+function displayRecent(recentData: any) {
+    const recentContainer = document.getElementById("recent")!;
+    recentContainer.innerHTML = ""; 
+
+    const items = recentData.items;
+
+    items.forEach((item: any) => {
+        const recent = item.track;
+        const recentInfo = `
+            <p>
+                <img src="${recent.album.images[0]?.url}" alt="Album cover" width="100" height="100" style="vertical-align:middle; margin-right:10px;">
+                <strong>${recent.name}</strong> by ${recent.artists.map((a: any) => a.name).join(", ")}
+            </p>
+        `;
+        recentContainer.innerHTML += recentInfo; 
+    });
 }
